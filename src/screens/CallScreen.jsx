@@ -4,7 +4,7 @@ import {
 } from 'lucide-react'
 
 import { CARE_PILLARS, STAKEHOLDER_TYPES, QUESTIONS, WORKER_RESPONSES,
-         RED_FLAGS, INITIAL_LINES, SCRIPT_RESPONSES } from '../constants'
+         RED_FLAGS, INITIAL_LINES, DEMO_PAIRS } from '../constants'
 import { useCARE } from '../hooks/useCARE'
 import { CAREPillarTile } from '../components/CAREPillarTile'
 import { QuestionCard }   from '../components/QuestionCard'
@@ -14,7 +14,7 @@ import { ExitModal }      from '../components/ExitModal'
 import { PostCallReport } from '../components/PostCallReport'
 
 export function CallScreen({ stakeholder, onExit }) {
-  const [phase, setPhase] = useState('active')           // active | ended
+  const [phase, setPhase] = useState('active')
   const [transcript, setTranscript] = useState([])
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
   const [expandedPillar, setExpandedPillar] = useState(null)
@@ -24,22 +24,30 @@ export function CallScreen({ stakeholder, onExit }) {
   const [showReport, setShowReport] = useState(false)
   const [showExitModal, setShowExitModal] = useState(false)
   const [activeQuestionPillar, setActiveQuestionPillar] = useState('C')
+
+  // Demo drip state
+  const [pairIndex, setPairIndex] = useState(0)       // which DEMO_PAIRS entry we're up to
+  const [dripPhase, setDripPhase] = useState('cm')    // 'cm' | 'response' | 'waiting'
+
+  // Injected question state (from Ask button)
   const [pendingCMQuestion, setPendingCMQuestion] = useState(null)
-  const [autoIndex, setAutoIndex] = useState(0)
-  const [waitingForWorker, setWaitingForWorker] = useState(false)
+  const [waitingForResponse, setWaitingForResponse] = useState(false)
 
   const { coverage, analyseTranscript, getState } = useCARE()
   const transcriptRef = useRef(null)
   const timerRef      = useRef(null)
-  const drillRef      = useRef(null)
+  const dripRef       = useRef(null)
 
-  const scriptLines = SCRIPT_RESPONSES[stakeholder] || SCRIPT_RESPONSES.worker
+  const pairs = DEMO_PAIRS[stakeholder] || DEMO_PAIRS.worker
+  const responderLabel = { worker: 'Worker', employer: 'Employer', medical: 'Medical', legal: 'Legal' }[stakeholder] || 'Worker'
 
   // ── Initialise transcript ────────────────────────────────────────────────────
   useEffect(() => {
     const initial = (INITIAL_LINES[stakeholder] || INITIAL_LINES.worker).map(l => ({ ...l, isNew: false }))
     setTranscript(initial)
     analyseTranscript(initial)
+    setPairIndex(0)
+    setDripPhase('cm')
   }, [stakeholder, analyseTranscript])
 
   // ── Timer ────────────────────────────────────────────────────────────────────
@@ -50,64 +58,85 @@ export function CallScreen({ stakeholder, onExit }) {
     return () => clearInterval(timerRef.current)
   }, [phase])
 
-  // ── Scroll transcript to bottom ──────────────────────────────────────────────
+  // ── Auto-scroll ──────────────────────────────────────────────────────────────
   useEffect(() => {
     if (transcriptRef.current) transcriptRef.current.scrollTop = transcriptRef.current.scrollHeight
   }, [transcript])
 
-  // ── Add a line to transcript ─────────────────────────────────────────────────
+  // ── Add a line helper ────────────────────────────────────────────────────────
   const addLine = useCallback((line) => {
     setTranscript(prev => {
       const updated = [...prev, { ...line, isNew: true }]
       analyseTranscript(updated)
-      const newFlags = RED_FLAGS.filter(
-        rf => rf.pattern.test(line.text) && !redFlags.find(f => f.message === rf.message)
-      )
-      if (newFlags.length) setRedFlags(p => [...p, ...newFlags])
+      RED_FLAGS.forEach(rf => {
+        if (rf.pattern.test(line.text)) {
+          setRedFlags(prev => {
+            if (prev.find(f => f.message === rf.message)) return prev
+            return [...prev, rf]
+          })
+        }
+      })
       return updated
     })
-  }, [analyseTranscript, redFlags])
+  }, [analyseTranscript])
 
-  // ── Injected question: CM speaks first, then worker responds ─────────────────
+  // ── Auto-drip: fires one CM line, then after a pause fires the response ──────
+  // Pauses entirely while an injected question is being handled.
+  useEffect(() => {
+    if (phase !== 'active') return
+    if (waitingForResponse || pendingCMQuestion) return
+    if (pairIndex >= pairs.length) return
+
+    const pair = pairs[pairIndex]
+
+    if (dripPhase === 'cm') {
+      // Wait before the CM speaks, then show their line
+      dripRef.current = setTimeout(() => {
+        addLine({ speaker: 'CM', text: pair.cm })
+        setDripPhase('response')
+      }, 4000)
+    } else if (dripPhase === 'response') {
+      // Short pause after CM speaks, then the other party responds
+      dripRef.current = setTimeout(() => {
+        addLine({ speaker: responderLabel, text: pair.response })
+        setPairIndex(i => i + 1)
+        setDripPhase('cm')
+      }, 2500)
+    }
+
+    return () => clearTimeout(dripRef.current)
+  }, [phase, pairIndex, dripPhase, pairs, responderLabel, addLine, waitingForResponse, pendingCMQuestion])
+
+  // ── Injected question from Ask button ────────────────────────────────────────
   useEffect(() => {
     if (!pendingCMQuestion || phase !== 'active') return
 
+    // Stop the auto-drip timer
+    clearTimeout(dripRef.current)
+
     const t1 = setTimeout(() => {
       addLine({ speaker: 'CM', text: pendingCMQuestion })
-      setWaitingForWorker(true)
+      setWaitingForResponse(true)
 
       const lq = pendingCMQuestion.toLowerCase()
       const matchKey = Object.keys(WORKER_RESPONSES).find(k => lq.includes(k))
       const reply = matchKey
         ? WORKER_RESPONSES[matchKey]
-        : "That's a good question. Let me think about that... yeah, I'd say things are moving slowly but I'm trying to stay positive."
+        : "That's a good question. Let me think about that for a second... yeah, things are moving slowly but I'm trying to stay positive."
 
       const t2 = setTimeout(() => {
-        addLine({ speaker: 'Worker', text: reply })
-        setWaitingForWorker(false)
+        addLine({ speaker: responderLabel, text: reply })
+        setWaitingForResponse(false)
         setPendingCMQuestion(null)
-      }, 2600)
+        // Resume auto-drip from the next CM line
+        setDripPhase('cm')
+      }, 2500)
 
       return () => clearTimeout(t2)
     }, 800)
 
     return () => clearTimeout(t1)
-  }, [pendingCMQuestion, phase, addLine])
-
-  // ── Auto-drip remaining script lines ─────────────────────────────────────────
-  useEffect(() => {
-    if (phase !== 'active' || waitingForWorker || pendingCMQuestion) return
-    if (autoIndex >= scriptLines.length) return
-
-    drillRef.current = setTimeout(() => {
-      const line = scriptLines[autoIndex]
-      const alreadyShown = transcript.some(t => t.text === line.text)
-      if (!alreadyShown) addLine(line)
-      setAutoIndex(i => i + 1)
-    }, 3500)
-
-    return () => clearTimeout(drillRef.current)
-  }, [phase, autoIndex, waitingForWorker, pendingCMQuestion, scriptLines, addLine, transcript])
+  }, [pendingCMQuestion, phase, addLine, responderLabel])
 
   // ── Auto-suggest the most uncovered pillar ───────────────────────────────────
   useEffect(() => {
@@ -119,7 +148,11 @@ export function CallScreen({ stakeholder, onExit }) {
   const formatTime = (s) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`
   const completeness = Math.round(Object.keys(CARE_PILLARS).filter(k => getState(k) !== 'missing').length / 4 * 100)
 
-  const handleEndCall = () => setPhase('ended')
+  const handleEndCall = () => {
+    clearTimeout(dripRef.current)
+    setPhase('ended')
+  }
+
   const handleAddAction = () => {
     if (newAction.trim()) { setActions(p => [...p, newAction.trim()]); setNewAction('') }
   }
@@ -129,21 +162,18 @@ export function CallScreen({ stakeholder, onExit }) {
   }
 
   const handleInjectQuestion = useCallback((question) => {
-    if (phase !== 'active' || waitingForWorker) return
-    clearTimeout(drillRef.current)
+    if (phase !== 'active' || waitingForResponse) return
+    clearTimeout(dripRef.current)
     setPendingCMQuestion(question)
-  }, [phase, waitingForWorker])
+  }, [phase, waitingForResponse])
 
-  const handleExitAnyway = () => onExit()
-
-  const handleGenerateReportFromModal = () => {
-    setShowExitModal(false)
-    setShowReport(true)
-  }
-
-  const handleReportClose = () => {
-    setShowReport(false)
-  }
+  // Typing indicator: show when CM is about to speak or waiting for response
+  const showTyping = phase === 'active' && (
+    waitingForResponse ||
+    pendingCMQuestion ||
+    (dripPhase === 'response' && pairIndex < pairs.length) ||
+    (dripPhase === 'cm' && pairIndex < pairs.length)
+  )
 
   return (
     <div style={{ minHeight: '100vh', background: '#F8FAFC' }}>
@@ -181,15 +211,11 @@ export function CallScreen({ stakeholder, onExit }) {
           ClearPath
         </button>
 
-        {/* Status */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
+            display: 'flex', alignItems: 'center', gap: 6,
             background: phase === 'active' ? '#FEF2F2' : '#F3F4F6',
-            padding: '4px 10px',
-            borderRadius: 20,
+            padding: '4px 10px', borderRadius: 20,
           }}>
             <div style={{
               width: 6, height: 6, borderRadius: '50%',
@@ -221,7 +247,6 @@ export function CallScreen({ stakeholder, onExit }) {
           </div>
         </div>
 
-        {/* Actions */}
         <div style={{ display: 'flex', gap: 8 }}>
           {phase === 'active' && (
             <button
@@ -245,7 +270,7 @@ export function CallScreen({ stakeholder, onExit }) {
       {/* Two-column body */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', height: 'calc(100vh - 53px)' }}>
 
-        {/* LEFT column */}
+        {/* LEFT */}
         <div style={{ display: 'flex', flexDirection: 'column', borderRight: '1px solid #E5E7EB', overflow: 'hidden' }}>
 
           {/* CARE tiles */}
@@ -273,14 +298,16 @@ export function CallScreen({ stakeholder, onExit }) {
             {transcript.map((line, i) => (
               <TranscriptLine key={i} line={line} isNew={line.isNew && i === transcript.length - 1} />
             ))}
-            {phase === 'active' && (waitingForWorker || autoIndex < scriptLines.length) && (
-              <div style={{ display: 'flex', gap: 4, padding: '8px 12px', animation: 'blink 1.2s infinite' }}>
-                {[0,1,2].map(i => <div key={i} style={{ width: 5, height: 5, borderRadius: '50%', background: '#D1D5DB' }} />)}
+            {showTyping && (
+              <div style={{ display: 'flex', gap: 4, padding: '8px 4px', animation: 'blink 1.2s infinite' }}>
+                {[0,1,2].map(i => (
+                  <div key={i} style={{ width: 5, height: 5, borderRadius: '50%', background: '#D1D5DB' }} />
+                ))}
               </div>
             )}
           </div>
 
-          {/* Actions */}
+          {/* Agreed Actions */}
           <div style={{ padding: '12px 16px', borderTop: '1px solid #E5E7EB', background: '#fff' }}>
             <div style={{ fontSize: 10, fontWeight: 700, color: '#9CA3AF', letterSpacing: 1, marginBottom: 8 }}>
               AGREED ACTIONS
@@ -308,7 +335,7 @@ export function CallScreen({ stakeholder, onExit }) {
           </div>
         </div>
 
-        {/* RIGHT column — Question suggestions */}
+        {/* RIGHT */}
         <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#fff' }}>
           <div style={{ padding: '12px 16px', borderBottom: '1px solid #E5E7EB' }}>
             <div style={{ fontSize: 10, fontWeight: 700, color: '#9CA3AF', letterSpacing: 1, marginBottom: 8 }}>
@@ -323,14 +350,11 @@ export function CallScreen({ stakeholder, onExit }) {
                     key={key}
                     onClick={() => setActiveQuestionPillar(key)}
                     style={{
-                      flex: 1,
-                      padding: '5px 4px',
+                      flex: 1, padding: '5px 4px',
                       border: `2px solid ${active ? pillar.color : '#E5E7EB'}`,
                       borderRadius: 8,
                       background: active ? pillar.color : '#F9FAFB',
-                      cursor: 'pointer',
-                      position: 'relative',
-                      transition: 'all 0.15s ease',
+                      cursor: 'pointer', position: 'relative', transition: 'all 0.15s ease',
                     }}
                   >
                     <div style={{ fontFamily: "'Space Mono', monospace", fontWeight: 700, fontSize: 13, color: active ? '#fff' : pillar.color }}>{key}</div>
@@ -351,7 +375,7 @@ export function CallScreen({ stakeholder, onExit }) {
               <>
                 <div style={{ fontSize: 11, color: '#9CA3AF', marginBottom: 8 }}>
                   {CARE_PILLARS[activeQuestionPillar]?.description} · {STAKEHOLDER_TYPES[stakeholder]?.label}
-                  <span style={{ marginLeft: 6, color: '#0EA5E9', fontWeight: 600 }}>· Click "Ask" to inject</span>
+                  <span style={{ marginLeft: 6, color: '#0EA5E9', fontWeight: 600 }}>· Click "Ask" to use</span>
                 </div>
                 {(QUESTIONS[activeQuestionPillar]?.[stakeholder] || QUESTIONS[activeQuestionPillar]?.worker || []).map((q, i) => (
                   <QuestionCard key={`${activeQuestionPillar}-${i}`} question={q} onInject={handleInjectQuestion} />
@@ -365,7 +389,6 @@ export function CallScreen({ stakeholder, onExit }) {
             )}
           </div>
 
-          {/* Compliance footer */}
           <div style={{ padding: '8px 12px', borderTop: '1px solid #E5E7EB', background: '#FFFBEB' }}>
             <div style={{ fontSize: 10, color: '#92400E', display: 'flex', gap: 4, alignItems: 'flex-start' }}>
               <Shield size={10} style={{ flexShrink: 0, marginTop: 1 }} />
@@ -377,14 +400,14 @@ export function CallScreen({ stakeholder, onExit }) {
 
       {showExitModal && (
         <ExitModal
-          onGenerateReport={handleGenerateReportFromModal}
-          onExitAnyway={handleExitAnyway}
+          onGenerateReport={() => { setShowExitModal(false); setShowReport(true) }}
+          onExitAnyway={onExit}
           onCancel={() => setShowExitModal(false)}
         />
       )}
 
       {showReport && (
-        <PostCallReport transcript={transcript} stakeholder={stakeholder} onClose={handleReportClose} />
+        <PostCallReport transcript={transcript} stakeholder={stakeholder} onClose={() => setShowReport(false)} />
       )}
     </div>
   )

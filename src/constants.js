@@ -134,21 +134,21 @@ export const QUESTIONS = {
 // Keys are substrings matched against the CM question (lowercase).
 
 export const WORKER_RESPONSES = {
-  'treating doctor':           "Dr Patel has been pretty good. She said the physio is helping but I still have a lot of pain in the mornings.",
-  'timeframe for returning':   "She mentioned maybe six weeks if things keep improving. No certificate for any duties yet though.",
-  'activities you can':        "I can walk around the block and do some light things at home, but bending and lifting are still really hard.",
-  'treatment are you':         "Physio twice a week. I'm also on some anti-inflammatories. No surgery planned, which is a relief.",
-  'contact with your employer':"Not really. My manager sent a message early on but I haven't replied. I didn't know what to say.",
-  'manager has responded':     "Honestly I haven't really spoken to him. I felt a bit embarrassed about the whole thing.",
-  'workplace would be':        "I'm not sure. The warehouse environment is pretty physical. I'm worried about being expected to do the same job.",
-  'outside the injury':        "The financial side is pretty stressful. I've got a mortgage and payments are getting tight.",
-  'returning to work':         "Honestly a bit anxious. Being in that warehouse again — I'm worried about re-injuring myself.",
-  'financial pressures':       "Yeah, the mortgage is the main thing. And my partner had to reduce their hours too to help out at home.",
-  'claims process':            "It's a bit overwhelming. There's a lot of paperwork and I'm not always sure what I'm supposed to do next.",
-  'workplace environment':     "I just worry about being put in the same situation that caused the injury. Nothing has changed there as far as I know.",
-  'attending all your':        "I haven't missed one. I know it's important to show up.",
-  'open to discussing':        "Yes, as long as the doctor says it's okay. I don't want to rush it and make things worse.",
-  'feel ready to take':        "I think if I had a clear plan and knew what the duties would look like, that would help a lot.",
+  'treating doctor':            "Dr Patel has been pretty good. She said the physio is helping but I still have a lot of pain in the mornings.",
+  'timeframe for returning':    "She mentioned maybe six weeks if things keep improving. No certificate for any duties yet though.",
+  'activities you can':         "I can walk around the block and do some light things at home, but bending and lifting are still really hard.",
+  'treatment are you':          "Physio twice a week. I'm also on some anti-inflammatories. No surgery planned, which is a relief.",
+  'contact with your employer': "Not really. My manager sent a message early on but I haven't replied. I didn't know what to say.",
+  'manager has responded':      "Honestly I haven't really spoken to him. I felt a bit embarrassed about the whole thing.",
+  'workplace would be':         "I'm not sure. The warehouse environment is pretty physical. I'm worried about being expected to do the same job.",
+  'outside the injury':         "The financial side is pretty stressful. I've got a mortgage and payments are getting tight.",
+  'returning to work':          "Honestly a bit anxious. Being in that warehouse again — I'm worried about re-injuring myself.",
+  'financial pressures':        "Yeah, the mortgage is the main thing. And my partner had to reduce their hours too to help out at home.",
+  'claims process':             "It's a bit overwhelming. There's a lot of paperwork and I'm not always sure what I'm supposed to do next.",
+  'workplace environment':      "I just worry about being put in the same situation that caused the injury. Nothing has changed there as far as I know.",
+  'attending all your':         "I haven't missed one. I know it's important to show up.",
+  'open to discussing':         "Yes, as long as the doctor says it's okay. I don't want to rush it and make things worse.",
+  'feel ready to take':         "I think if I had a clear plan and knew what the duties would look like, that would help a lot.",
 }
 
 // ─── RED FLAG PATTERNS ────────────────────────────────────────────────────────
@@ -167,56 +167,106 @@ export const RED_FLAGS = [
 ]
 
 // ─── DEMO SCRIPT ──────────────────────────────────────────────────────────────
+// INITIAL_LINES: rendered immediately on call start. Greeting exchange only.
+// DEMO_PAIRS: dripped automatically during the call. Each pair is a CM question
+//             followed by the other party's response. They fire in order with
+//             a pause between the CM line and the response, so the conversation
+//             reads naturally rather than flooding all at once.
 
 export const INITIAL_LINES = {
   worker: [
     { speaker: 'CM',     text: "Hi, this is Alex calling from ReturnPath Insurance. Am I speaking with Jamie?" },
     { speaker: 'Worker', text: "Yeah, hi Alex. Yes, it's Jamie." },
-    { speaker: 'CM',     text: "Thanks for picking up Jamie. How are you feeling today?" },
-    { speaker: 'Worker', text: "Oh, you know. Still sore. The back is giving me a lot of trouble in the mornings." },
-    { speaker: 'CM',     text: "I'm sorry to hear that. Have you been able to see your treating doctor recently?" },
-    { speaker: 'Worker', text: "Yeah, I saw Dr Patel last Thursday. She said the physio is helping but slowly. She wants me to keep going twice a week." },
   ],
   employer: [
     { speaker: 'CM',       text: "Hi, thanks for making time today. I'm calling about Jamie's return-to-work plan." },
     { speaker: 'Employer', text: "Of course. We want to support the process as much as we can." },
-    { speaker: 'CM',       text: "That's great to hear. Can you tell me a bit about the roles you have available at the moment?" },
-    { speaker: 'Employer', text: "We've got some admin and light packing work that wouldn't involve any heavy lifting." },
   ],
   medical: [
     { speaker: 'CM',      text: "Good morning, thanks for speaking with me. I'm the case manager for Jamie's workers' comp claim." },
     { speaker: 'Medical', text: "Yes, I've been treating Jamie for about three weeks now." },
-    { speaker: 'CM',      text: "Can you give me an overview of their current functional capacity?" },
-    { speaker: 'Medical', text: "Currently restricted from any heavy lifting over five kilograms. Sedentary to light duties only at this stage." },
   ],
   legal: [
     { speaker: 'CM',    text: "Good afternoon. I understand you're representing Jamie in relation to their claim." },
     { speaker: 'Legal', text: "That's correct. My client has asked me to be present for all case management communications going forward." },
-    { speaker: 'CM',    text: "Understood. Can you confirm the current medical position as documented by the treating practitioner?" },
-    { speaker: 'Legal', text: "The treating doctor has certified Jamie as unfit for the pre-injury role but potentially suitable for alternative duties." },
   ],
 }
 
-export const SCRIPT_RESPONSES = {
+export const DEMO_PAIRS = {
   worker: [
-    { speaker: 'Worker', text: "She said maybe six weeks if things keep improving. But she hasn't given me a certificate yet for any duties." },
-    { speaker: 'Worker', text: "Honestly, a bit anxious. I'm worried about being in that warehouse environment again. It's a physical job." },
-    { speaker: 'Worker', text: "Yeah, the financial side is stressful. I've got a mortgage. The payments have been tight." },
-    { speaker: 'Worker', text: "Not directly. My manager sent a message early on but I haven't replied. I didn't know what to say." },
-    { speaker: 'Worker', text: "That would help a lot actually. Knowing there's a plan makes it feel less daunting." },
+    {
+      cm:       "Thanks for picking up Jamie. How are you feeling today?",
+      response: "Oh, you know. Still sore. The back is giving me a lot of trouble in the mornings.",
+    },
+    {
+      cm:       "I'm sorry to hear that. Have you been able to see your treating doctor recently?",
+      response: "Yeah, I saw Dr Patel last Thursday. She said the physio is helping but slowly. She wants me to keep going twice a week.",
+    },
+    {
+      cm:       "That's good. Did she give you any idea on a timeframe for returning to work?",
+      response: "She said maybe six weeks if things keep improving. But she hasn't given me a certificate yet for any duties.",
+    },
+    {
+      cm:       "Understood. How are you feeling about the idea of eventually going back?",
+      response: "Honestly, a bit anxious. I'm worried about being in that warehouse environment again. It's a physical job.",
+    },
+    {
+      cm:       "That makes sense. Is there anything outside the injury itself that's been making things harder for you?",
+      response: "Yeah, the financial side is stressful. I've got a mortgage. The payments have been tight.",
+    },
+    {
+      cm:       "I hear you. Have you had much contact with your employer since the injury?",
+      response: "Not directly. My manager sent a message early on but I haven't replied. I didn't know what to say.",
+    },
   ],
   employer: [
-    { speaker: 'Employer', text: "HR is aware and supportive. We just need to know what restrictions we're working with." },
-    { speaker: 'Employer', text: "We could have something available within a week once we get the medical clearance." },
-    { speaker: 'Employer', text: "The team is fine. We've been covering the shifts. There's no pressure from our side." },
+    {
+      cm:       "Can you tell me a bit about the roles you have available at the moment?",
+      response: "We've got some admin and light packing work that wouldn't involve any heavy lifting.",
+    },
+    {
+      cm:       "That's helpful. Is HR across the return-to-work obligations on this claim?",
+      response: "HR is aware and supportive. We just need to know what restrictions we're working with.",
+    },
+    {
+      cm:       "What's the earliest you could have a modified duties position ready?",
+      response: "We could have something available within a week once we get the medical clearance.",
+    },
+    {
+      cm:       "Good. How has the team responded to the worker's absence?",
+      response: "The team is fine. We've been covering the shifts. There's no pressure from our side.",
+    },
   ],
   medical: [
-    { speaker: 'Medical', text: "No surgical intervention planned. The main goal is pain management and gradual strengthening." },
-    { speaker: 'Medical', text: "I'd want to see four more weeks of consistent physio before signing off on anything beyond light duties." },
-    { speaker: 'Medical', text: "Psychosocially Jamie seems a bit flat. Worth monitoring — I haven't referred to psych yet but may consider it." },
+    {
+      cm:       "Can you give me an overview of their current functional capacity?",
+      response: "Currently restricted from any heavy lifting over five kilograms. Sedentary to light duties only at this stage.",
+    },
+    {
+      cm:       "Is there any surgical intervention being considered?",
+      response: "No surgical intervention planned. The main goal is pain management and gradual strengthening.",
+    },
+    {
+      cm:       "What milestones would you want to see before signing off on a graded return?",
+      response: "I'd want to see four more weeks of consistent physio before signing off on anything beyond light duties.",
+    },
+    {
+      cm:       "Are there any psychosocial factors that might be affecting recovery?",
+      response: "Jamie seems a bit flat psychosocially. Worth monitoring — I haven't referred to psych yet but may consider it.",
+    },
   ],
   legal: [
-    { speaker: 'Legal', text: "My client is willing to participate in the RTW process provided suitable duties are genuinely available." },
-    { speaker: 'Legal', text: "We'll need all proposed suitable duties plans provided in writing before my client commits to anything." },
+    {
+      cm:       "Can you confirm the current medical position as documented by the treating practitioner?",
+      response: "The treating doctor has certified Jamie as unfit for the pre-injury role but potentially suitable for alternative duties.",
+    },
+    {
+      cm:       "Is your client willing to participate in the return-to-work process at this stage?",
+      response: "My client is willing to participate provided suitable duties are genuinely available.",
+    },
+    {
+      cm:       "We'll be putting together a suitable duties plan shortly. How would you like us to communicate that?",
+      response: "We'll need all proposed suitable duties plans provided in writing before my client commits to anything.",
+    },
   ],
 }
