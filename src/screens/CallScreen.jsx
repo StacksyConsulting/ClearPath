@@ -1,54 +1,117 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import {
   PhoneOff, FileText, ArrowLeft, Clipboard, Shield, CheckCircle2, Plus,
+  Mic, MicOff, Radio, AlertCircle,
 } from 'lucide-react'
 
-import { CARE_PILLARS, STAKEHOLDER_TYPES, QUESTIONS, WORKER_RESPONSES,
+import { CARE_PILLARS, STAKEHOLDER_TYPES, WORKER_RESPONSES,
          RED_FLAGS, INITIAL_LINES, DEMO_PAIRS } from '../constants'
-import { useCARE } from '../hooks/useCARE'
-import { CAREPillarTile } from '../components/CAREPillarTile'
-import { QuestionCard }   from '../components/QuestionCard'
-import { TranscriptLine } from '../components/TranscriptLine'
-import { RedFlagBanner }  from '../components/RedFlagBanner'
-import { ExitModal }      from '../components/ExitModal'
-import { PostCallReport } from '../components/PostCallReport'
+import { useCARE }                from '../hooks/useCARE'
+import { useQuestionCoverage }    from '../hooks/useQuestionCoverage'
+import { useSpeechTranscription } from '../hooks/useSpeechTranscription'
+import { CAREPillarTile }  from '../components/CAREPillarTile'
+import { QuestionCard }    from '../components/QuestionCard'
+import { TranscriptLine }  from '../components/TranscriptLine'
+import { RedFlagBanner }   from '../components/RedFlagBanner'
+import { ExitModal }       from '../components/ExitModal'
+import { PostCallReport }  from '../components/PostCallReport'
 
-export function CallScreen({ stakeholder, onExit }) {
-  const [phase, setPhase] = useState('active')
-  const [transcript, setTranscript] = useState([])
+// ─── LIVE SPEAKER LABEL INFERENCE ─────────────────────────────────────────────
+// Infers "CM" vs the other party label by watching the last few lines.
+// If the transcript contains any known CM phrases, CM gets the first slot;
+// otherwise we just alternate.
+function inferSpeakerLabels(transcript) {
+  if (transcript.length < 2) return { cmLabel: 'CM', otherLabel: 'Caller' }
+
+  // Count how many lines are attributed to each unique speaker
+  const counts = {}
+  transcript.forEach(l => { counts[l.speaker] = (counts[l.speaker] || 0) + 1 })
+  const speakers = Object.keys(counts)
+
+  if (speakers.length === 0) return { cmLabel: 'CM', otherLabel: 'Caller' }
+  if (speakers.length === 1) return { cmLabel: speakers[0], otherLabel: 'Caller' }
+
+  // The speaker with more lines is probably the CM
+  const [a, b] = speakers
+  const cmLabel = counts[a] >= counts[b] ? a : b
+  const otherLabel = cmLabel === a ? b : a
+  return { cmLabel, otherLabel }
+}
+
+export function CallScreen({ stakeholder, callMode, onExit }) {
+  const isDemo = callMode !== 'live'
+
+  const [phase, setPhase]             = useState('active')
+  const [transcript, setTranscript]   = useState([])
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
   const [expandedPillar, setExpandedPillar] = useState(null)
-  const [redFlags, setRedFlags] = useState([])
-  const [actions, setActions] = useState([])
-  const [newAction, setNewAction] = useState('')
-  const [showReport, setShowReport] = useState(false)
+  const [redFlags, setRedFlags]       = useState([])
+  const [actions, setActions]         = useState([])
+  const [newAction, setNewAction]     = useState('')
+  const [showReport, setShowReport]   = useState(false)
   const [showExitModal, setShowExitModal] = useState(false)
   const [activeQuestionPillar, setActiveQuestionPillar] = useState('C')
 
-  // Demo drip state
-  const [pairIndex, setPairIndex] = useState(0)       // which DEMO_PAIRS entry we're up to
-  const [dripPhase, setDripPhase] = useState('cm')    // 'cm' | 'response' | 'waiting'
+  // Live mode — interim line shown while speech in progress
+  const [interimLine, setInterimLine] = useState(null)
 
-  // Injected question state (from Ask button)
+  // Demo drip state
+  const [pairIndex, setPairIndex]   = useState(0)
+  const [dripPhase, setDripPhase]   = useState('cm')
+
+  // Injected question state (Ask button)
   const [pendingCMQuestion, setPendingCMQuestion] = useState(null)
   const [waitingForResponse, setWaitingForResponse] = useState(false)
 
   const { coverage, analyseTranscript, getState } = useCARE()
+  const { uncovered, covered } = useQuestionCoverage(activeQuestionPillar, stakeholder, transcript)
   const transcriptRef = useRef(null)
   const timerRef      = useRef(null)
   const dripRef       = useRef(null)
 
-  const pairs = DEMO_PAIRS[stakeholder] || DEMO_PAIRS.worker
-  const responderLabel = { worker: 'Worker', employer: 'Employer', medical: 'Medical', legal: 'Legal' }[stakeholder] || 'Worker'
+  // Labels
+  const demoResponderLabel = { worker: 'Worker', employer: 'Employer', medical: 'Medical', legal: 'Legal' }[stakeholder] || 'Caller'
+  const { cmLabel, otherLabel } = inferSpeakerLabels(transcript)
 
-  // ── Initialise transcript ────────────────────────────────────────────────────
+  // Speech transcription hook (only active in live mode)
+  const handleSpeechLine = useCallback(({ speaker, text, isFinal }) => {
+    if (isFinal) {
+      setInterimLine(null)
+      setTranscript(prev => {
+        const updated = [...prev, { speaker, text, isNew: true }]
+        analyseTranscript(updated)
+        RED_FLAGS.forEach(rf => {
+          if (rf.pattern.test(text)) {
+            setRedFlags(p => p.find(f => f.message === rf.message) ? p : [...p, rf])
+          }
+        })
+        return updated
+      })
+    } else {
+      setInterimLine({ speaker, text })
+    }
+  }, [analyseTranscript])
+
+  const { micState, isListening, requestMic, stopListening } = useSpeechTranscription({
+    onLine: handleSpeechLine,
+    otherLabel: STAKEHOLDER_TYPES[stakeholder]?.label || 'Caller',
+  })
+
+  // ── Initialise ───────────────────────────────────────────────────────────────
   useEffect(() => {
-    const initial = (INITIAL_LINES[stakeholder] || INITIAL_LINES.worker).map(l => ({ ...l, isNew: false }))
-    setTranscript(initial)
-    analyseTranscript(initial)
-    setPairIndex(0)
-    setDripPhase('cm')
-  }, [stakeholder, analyseTranscript])
+    if (isDemo) {
+      const initial = (INITIAL_LINES[stakeholder] || INITIAL_LINES.worker).map(l => ({ ...l, isNew: false }))
+      setTranscript(initial)
+      analyseTranscript(initial)
+      setPairIndex(0)
+      setDripPhase('cm')
+    } else {
+      // Live mode — start with empty transcript, request mic immediately
+      setTranscript([])
+      requestMic()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // ── Timer ────────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -61,28 +124,26 @@ export function CallScreen({ stakeholder, onExit }) {
   // ── Auto-scroll ──────────────────────────────────────────────────────────────
   useEffect(() => {
     if (transcriptRef.current) transcriptRef.current.scrollTop = transcriptRef.current.scrollHeight
-  }, [transcript])
+  }, [transcript, interimLine])
 
-  // ── Add a line helper ────────────────────────────────────────────────────────
+  // ── Add a line helper (demo) ─────────────────────────────────────────────────
   const addLine = useCallback((line) => {
     setTranscript(prev => {
       const updated = [...prev, { ...line, isNew: true }]
       analyseTranscript(updated)
       RED_FLAGS.forEach(rf => {
         if (rf.pattern.test(line.text)) {
-          setRedFlags(prev => {
-            if (prev.find(f => f.message === rf.message)) return prev
-            return [...prev, rf]
-          })
+          setRedFlags(p => p.find(f => f.message === rf.message) ? p : [...p, rf])
         }
       })
       return updated
     })
   }, [analyseTranscript])
 
-  // ── Auto-drip: fires one CM line, then after a pause fires the response ──────
-  // Pauses entirely while an injected question is being handled.
+  // ── Demo auto-drip ───────────────────────────────────────────────────────────
+  const pairs = DEMO_PAIRS[stakeholder] || DEMO_PAIRS.worker
   useEffect(() => {
+    if (!isDemo) return
     if (phase !== 'active') return
     if (waitingForResponse || pendingCMQuestion) return
     if (pairIndex >= pairs.length) return
@@ -90,28 +151,24 @@ export function CallScreen({ stakeholder, onExit }) {
     const pair = pairs[pairIndex]
 
     if (dripPhase === 'cm') {
-      // Wait before the CM speaks, then show their line
       dripRef.current = setTimeout(() => {
         addLine({ speaker: 'CM', text: pair.cm })
         setDripPhase('response')
       }, 4000)
     } else if (dripPhase === 'response') {
-      // Short pause after CM speaks, then the other party responds
       dripRef.current = setTimeout(() => {
-        addLine({ speaker: responderLabel, text: pair.response })
+        addLine({ speaker: demoResponderLabel, text: pair.response })
         setPairIndex(i => i + 1)
         setDripPhase('cm')
       }, 2500)
     }
 
     return () => clearTimeout(dripRef.current)
-  }, [phase, pairIndex, dripPhase, pairs, responderLabel, addLine, waitingForResponse, pendingCMQuestion])
+  }, [isDemo, phase, pairIndex, dripPhase, pairs, demoResponderLabel, addLine, waitingForResponse, pendingCMQuestion])
 
-  // ── Injected question from Ask button ────────────────────────────────────────
+  // ── Injected question (Ask button) ───────────────────────────────────────────
   useEffect(() => {
     if (!pendingCMQuestion || phase !== 'active') return
-
-    // Stop the auto-drip timer
     clearTimeout(dripRef.current)
 
     const t1 = setTimeout(() => {
@@ -122,13 +179,12 @@ export function CallScreen({ stakeholder, onExit }) {
       const matchKey = Object.keys(WORKER_RESPONSES).find(k => lq.includes(k))
       const reply = matchKey
         ? WORKER_RESPONSES[matchKey]
-        : "That's a good question. Let me think about that for a second... yeah, things are moving slowly but I'm trying to stay positive."
+        : "That's a good question. Let me think about that for a second — yeah, things are moving slowly but I'm trying to stay positive."
 
       const t2 = setTimeout(() => {
-        addLine({ speaker: responderLabel, text: reply })
+        addLine({ speaker: demoResponderLabel, text: reply })
         setWaitingForResponse(false)
         setPendingCMQuestion(null)
-        // Resume auto-drip from the next CM line
         setDripPhase('cm')
       }, 2500)
 
@@ -136,21 +192,24 @@ export function CallScreen({ stakeholder, onExit }) {
     }, 800)
 
     return () => clearTimeout(t1)
-  }, [pendingCMQuestion, phase, addLine, responderLabel])
+  }, [pendingCMQuestion, phase, addLine, demoResponderLabel])
 
-  // ── Auto-suggest the most uncovered pillar ───────────────────────────────────
+  // ── Auto-suggest pillar ──────────────────────────────────────────────────────
   useEffect(() => {
     const missing = Object.keys(CARE_PILLARS).find(k => getState(k) === 'missing')
     const partial = Object.keys(CARE_PILLARS).find(k => getState(k) === 'partial')
     setActiveQuestionPillar(missing || partial || 'C')
   }, [coverage, getState])
 
+  // ── Helpers ──────────────────────────────────────────────────────────────────
   const formatTime = (s) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`
   const completeness = Math.round(Object.keys(CARE_PILLARS).filter(k => getState(k) !== 'missing').length / 4 * 100)
 
   const handleEndCall = () => {
     clearTimeout(dripRef.current)
+    if (!isDemo) stopListening()
     setPhase('ended')
+    setInterimLine(null)
   }
 
   const handleAddAction = () => {
@@ -167,13 +226,34 @@ export function CallScreen({ stakeholder, onExit }) {
     setPendingCMQuestion(question)
   }, [phase, waitingForResponse])
 
-  // Typing indicator: show when CM is about to speak or waiting for response
-  const showTyping = phase === 'active' && (
-    waitingForResponse ||
-    pendingCMQuestion ||
+  // Demo typing indicator
+  const showDemoTyping = isDemo && phase === 'active' && (
+    waitingForResponse || pendingCMQuestion ||
     (dripPhase === 'response' && pairIndex < pairs.length) ||
     (dripPhase === 'cm' && pairIndex < pairs.length)
   )
+
+  // Mic status label
+  const micStatusLabel = {
+    idle:        'Mic off',
+    requesting:  'Requesting mic...',
+    granted:     isListening ? 'Listening' : 'Mic ready',
+    denied:      'Mic blocked',
+    unsupported: 'Not supported',
+  }[micState] || 'Mic off'
+
+  const micStatusColor = {
+    idle:        '#9CA3AF',
+    requesting:  '#F59E0B',
+    granted:     isListening ? '#10B981' : '#6B7280',
+    denied:      '#EF4444',
+    unsupported: '#EF4444',
+  }[micState] || '#9CA3AF'
+
+  // Speaker label display for the header badge
+  const stakeholderDisplayLabel = isDemo
+    ? STAKEHOLDER_TYPES[stakeholder]?.label
+    : otherLabel !== 'CM' ? otherLabel : STAKEHOLDER_TYPES[stakeholder]?.label
 
   return (
     <div style={{ minHeight: '100vh', background: '#F8FAFC' }}>
@@ -205,13 +285,29 @@ export function CallScreen({ stakeholder, onExit }) {
             gap: 6,
             padding: 0,
           }}
-          title="Return to home"
         >
           <ArrowLeft size={14} color="#0EA5E9" />
           ClearPath
         </button>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {/* Live / Demo badge */}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 5,
+            background: isDemo ? '#EFF6FF' : '#ECFDF5',
+            border: `1px solid ${isDemo ? '#BAE6FD' : '#6EE7B7'}`,
+            padding: '3px 8px', borderRadius: 20,
+          }}>
+            {isDemo
+              ? <FileText size={10} color="#0369A1" />
+              : <Radio size={10} color="#059669" />
+            }
+            <span style={{ fontSize: 11, fontWeight: 600, color: isDemo ? '#0369A1' : '#059669' }}>
+              {isDemo ? 'Demo' : 'Live'}
+            </span>
+          </div>
+
+          {/* Call status */}
           <div style={{
             display: 'flex', alignItems: 'center', gap: 6,
             background: phase === 'active' ? '#FEF2F2' : '#F3F4F6',
@@ -223,13 +319,28 @@ export function CallScreen({ stakeholder, onExit }) {
               animation: phase === 'active' ? 'blink 1.5s infinite' : 'none',
             }} />
             <span style={{ fontSize: 12, fontWeight: 600, color: phase === 'active' ? '#DC2626' : '#6B7280' }}>
-              {phase === 'active' ? `Live · ${formatTime(elapsedSeconds)}` : 'Call Ended'}
+              {phase === 'active' ? `${isDemo ? '' : ''}${formatTime(elapsedSeconds)}` : 'Call Ended'}
             </span>
           </div>
 
+          {/* Mic status (live only) */}
+          {!isDemo && phase === 'active' && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 5,
+              background: '#F9FAFB', border: '1px solid #E5E7EB',
+              padding: '4px 10px', borderRadius: 20,
+            }}>
+              {micState === 'denied' || micState === 'unsupported'
+                ? <MicOff size={12} color={micStatusColor} />
+                : <Mic size={12} color={micStatusColor} style={{ animation: isListening ? 'blink 1.5s infinite' : 'none' }} />
+              }
+              <span style={{ fontSize: 11, fontWeight: 600, color: micStatusColor }}>{micStatusLabel}</span>
+            </div>
+          )}
+
+          {/* Coverage */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <Clipboard size={13} color="#9CA3AF" />
-            <span style={{ fontSize: 12, color: '#6B7280' }}>Coverage</span>
             <div style={{ width: 60, height: 4, background: '#E5E7EB', borderRadius: 2, overflow: 'hidden' }}>
               <div style={{
                 width: `${completeness}%`, height: '100%',
@@ -242,11 +353,13 @@ export function CallScreen({ stakeholder, onExit }) {
             </span>
           </div>
 
+          {/* Stakeholder label */}
           <div style={{ background: '#F0F9FF', padding: '4px 10px', borderRadius: 20, fontSize: 12, color: '#0369A1', fontWeight: 600 }}>
-            {STAKEHOLDER_TYPES[stakeholder]?.label}
+            {stakeholderDisplayLabel}
           </div>
         </div>
 
+        {/* Right actions */}
         <div style={{ display: 'flex', gap: 8 }}>
           {phase === 'active' && (
             <button
@@ -292,13 +405,44 @@ export function CallScreen({ stakeholder, onExit }) {
             </div>
           </div>
 
+          {/* Mic denied / unsupported warning */}
+          {!isDemo && (micState === 'denied' || micState === 'unsupported') && (
+            <div style={{ background: '#FEF2F2', borderBottom: '1px solid #FECACA', padding: '10px 16px', display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+              <AlertCircle size={14} color="#DC2626" style={{ flexShrink: 0, marginTop: 1 }} />
+              <div style={{ fontSize: 12, color: '#991B1B' }}>
+                {micState === 'denied'
+                  ? 'Microphone access was blocked. Please allow microphone permissions in your browser settings and refresh the page.'
+                  : 'Your browser does not support speech recognition. Try Chrome or Edge for live transcription.'}
+              </div>
+            </div>
+          )}
+
           {/* Transcript */}
           <div ref={transcriptRef} style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
             <RedFlagBanner flags={redFlags} />
+
+            {transcript.length === 0 && !isDemo && micState === 'granted' && (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#D1D5DB', gap: 8 }}>
+                <Mic size={32} style={{ animation: isListening ? 'blink 1.5s infinite' : 'none' }} />
+                <div style={{ fontSize: 13 }}>
+                  {isListening ? 'Listening — start speaking...' : 'Mic ready. Start speaking to begin.'}
+                </div>
+              </div>
+            )}
+
             {transcript.map((line, i) => (
               <TranscriptLine key={i} line={line} isNew={line.isNew && i === transcript.length - 1} />
             ))}
-            {showTyping && (
+
+            {/* Interim line (live mode — grey, not yet final) */}
+            {interimLine && (
+              <div style={{ opacity: 0.5, marginBottom: 10 }}>
+                <TranscriptLine line={interimLine} isNew={false} />
+              </div>
+            )}
+
+            {/* Demo typing indicator */}
+            {showDemoTyping && (
               <div style={{ display: 'flex', gap: 4, padding: '8px 4px', animation: 'blink 1.2s infinite' }}>
                 {[0,1,2].map(i => (
                   <div key={i} style={{ width: 5, height: 5, borderRadius: '50%', background: '#D1D5DB' }} />
@@ -335,7 +479,7 @@ export function CallScreen({ stakeholder, onExit }) {
           </div>
         </div>
 
-        {/* RIGHT */}
+        {/* RIGHT — Question suggestions */}
         <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#fff' }}>
           <div style={{ padding: '12px 16px', borderBottom: '1px solid #E5E7EB' }}>
             <div style={{ fontSize: 10, fontWeight: 700, color: '#9CA3AF', letterSpacing: 1, marginBottom: 8 }}>
@@ -374,17 +518,41 @@ export function CallScreen({ stakeholder, onExit }) {
             ) : (
               <>
                 <div style={{ fontSize: 11, color: '#9CA3AF', marginBottom: 8 }}>
-                  {CARE_PILLARS[activeQuestionPillar]?.description} · {STAKEHOLDER_TYPES[stakeholder]?.label}
-                  <span style={{ marginLeft: 6, color: '#0EA5E9', fontWeight: 600 }}>· Click "Ask" to use</span>
+                  {CARE_PILLARS[activeQuestionPillar]?.description}
+                  {isDemo && <span style={{ marginLeft: 6, color: '#0EA5E9', fontWeight: 600 }}>· Click "Ask" to use</span>}
                 </div>
-                {(QUESTIONS[activeQuestionPillar]?.[stakeholder] || QUESTIONS[activeQuestionPillar]?.worker || []).map((q, i) => (
-                  <QuestionCard key={`${activeQuestionPillar}-${i}`} question={q} onInject={handleInjectQuestion} />
-                ))}
-                {getState(activeQuestionPillar) === 'covered' && (
-                  <div style={{ background: '#F0FDF4', border: '1px solid #86EFAC', borderRadius: 8, padding: '8px 12px', fontSize: 12, color: '#15803D', display: 'flex', gap: 6, alignItems: 'center' }}>
-                    <CheckCircle2 size={14} /> This pillar appears well covered. Good work.
+
+                {uncovered.length === 0 && covered.length > 0 && (
+                  <div style={{ background: '#F0FDF4', border: '1px solid #86EFAC', borderRadius: 8, padding: '8px 12px', fontSize: 12, color: '#15803D', display: 'flex', gap: 6, alignItems: 'center', marginBottom: 8 }}>
+                    <CheckCircle2 size={14} /> All key areas for this pillar have been covered.
                   </div>
                 )}
+
+                {uncovered.map((q, i) => (
+                  <QuestionCard
+                    key={`uncovered-${activeQuestionPillar}-${i}`}
+                    question={q}
+                    onInject={handleInjectQuestion}
+                    alreadyCovered={false}
+                    isDemo={isDemo}
+                  />
+                ))}
+
+                {covered.length > 0 && uncovered.length > 0 && (
+                  <div style={{ fontSize: 10, fontWeight: 600, color: '#9CA3AF', letterSpacing: 0.5, margin: '10px 0 6px', textTransform: 'uppercase' }}>
+                    Already discussed
+                  </div>
+                )}
+
+                {covered.map((q, i) => (
+                  <QuestionCard
+                    key={`covered-${activeQuestionPillar}-${i}`}
+                    question={q}
+                    onInject={handleInjectQuestion}
+                    alreadyCovered={true}
+                    isDemo={isDemo}
+                  />
+                ))}
               </>
             )}
           </div>

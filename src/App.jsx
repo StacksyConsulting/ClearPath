@@ -3,14 +3,25 @@ import { SetupScreen } from './screens/SetupScreen'
 import { CallScreen }  from './screens/CallScreen'
 
 export default function App() {
-  const [screen, setScreen] = useState('setup')        // setup | call
+  const [screen, setScreen]         = useState('setup')   // setup | call
   const [stakeholder, setStakeholder] = useState('worker')
+  const [callMode, setCallMode]     = useState('demo')    // demo | live
 
-  const handleStart = () => setScreen('call')
-  const handleExit  = () => setScreen('setup')
+  const handleStart = (mode) => {
+    setCallMode(mode)
+    setScreen('call')
+  }
+
+  const handleExit = () => setScreen('setup')
 
   if (screen === 'call') {
-    return <CallScreen stakeholder={stakeholder} onExit={handleExit} />
+    return (
+      <CallScreen
+        stakeholder={stakeholder}
+        callMode={callMode}
+        onExit={handleExit}
+      />
+    )
   }
 
   return (

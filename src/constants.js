@@ -45,93 +45,218 @@ export const CARE_PILLARS = {
 }
 
 // ─── SUGGESTED QUESTIONS ──────────────────────────────────────────────────────
+// Each question has a `signals` array — keywords that indicate this topic has
+// already been discussed in the transcript. If any signal appears in the full
+// transcript text, the question is marked as covered and sorted to the bottom.
 
 export const QUESTIONS = {
   C: {
     worker: [
-      "Can you walk me through what your treating doctor has told you about your recovery so far?",
-      "Are there any activities you can currently do comfortably, even if limited?",
-      "Has your doctor given you any indication of a timeframe for returning to work?",
-      "What treatment are you currently receiving, and how is it going?",
+      {
+        text: "Can you walk me through what your treating doctor has told you about your recovery so far?",
+        signals: ['treating doctor', 'dr ', 'doctor told', 'doctor said', 'doctor has'],
+      },
+      {
+        text: "Are there any activities you can currently do comfortably, even if limited?",
+        signals: ['activities', 'comfortably', 'what i can do', 'able to do', 'manage to do'],
+      },
+      {
+        text: "Has your doctor given you any indication of a timeframe for returning to work?",
+        signals: ['timeframe', 'six weeks', 'few weeks', 'when i can return', 'return date', 'weeks if'],
+      },
+      {
+        text: "What treatment are you currently receiving, and how is it going?",
+        signals: ['physio', 'physiotherapy', 'treatment', 'anti-inflam', 'medication', 'surgery'],
+      },
     ],
     employer: [
-      "What modified or alternative duties could you realistically offer in the short term?",
-      "Are there any safety considerations around a graded return for this worker?",
-      "Has the treating doctor provided any guidance on suitable duties?",
+      {
+        text: "What modified or alternative duties could you realistically offer in the short term?",
+        signals: ['modified duties', 'alternative duties', 'light duties', 'admin', 'packing', 'available role'],
+      },
+      {
+        text: "Are there any safety considerations around a graded return for this worker?",
+        signals: ['safety', 'risk', 'hazard', 'graded return', 'safe to return'],
+      },
+      {
+        text: "Has the treating doctor provided any guidance on suitable duties?",
+        signals: ['doctor said', 'medical clearance', 'restrictions', 'kilograms', 'sedentary', 'light duties'],
+      },
     ],
     medical: [
-      "What is the current functional capacity for this worker?",
-      "Are there any barriers to a graded return-to-work from a medical perspective?",
-      "What milestones need to be achieved before we consider modified duties?",
-      "What is the expected treatment trajectory over the next four to six weeks?",
+      {
+        text: "What is the current functional capacity for this worker?",
+        signals: ['functional capacity', 'capacity', 'lifting', 'kilograms', 'sedentary', 'light duties', 'restricted'],
+      },
+      {
+        text: "Are there any barriers to a graded return-to-work from a medical perspective?",
+        signals: ['barrier', 'graded return', 'medical perspective', 'from my perspective'],
+      },
+      {
+        text: "What milestones need to be achieved before we consider modified duties?",
+        signals: ['milestones', 'four weeks', 'weeks of physio', 'before signing off', 'before we consider'],
+      },
+      {
+        text: "What is the expected treatment trajectory over the next four to six weeks?",
+        signals: ['trajectory', 'treatment plan', 'next few weeks', 'strengthening', 'pain management'],
+      },
     ],
     legal: [
-      "Can you confirm the worker's current medical status as documented?",
-      "What is the treating practitioner's formal position on capacity for work?",
+      {
+        text: "Can you confirm the worker's current medical status as documented?",
+        signals: ['certified', 'medical status', 'unfit', 'suitable for alternative', 'documented'],
+      },
+      {
+        text: "What is the treating practitioner's formal position on capacity for work?",
+        signals: ['formal position', 'practitioner', 'capacity for work', 'pre-injury role'],
+      },
     ],
   },
   A: {
     worker: [
-      "Have you had any contact with your employer since the injury?",
-      "How do you feel your manager has responded to the situation?",
-      "Do you feel the workplace would be supportive of a gradual return?",
+      {
+        text: "Have you had any contact with your employer since the injury?",
+        signals: ['contact with', 'heard from', 'spoke to', 'my manager', 'employer since', 'message from'],
+      },
+      {
+        text: "How do you feel your manager has responded to the situation?",
+        signals: ['manager', 'supervisor', 'how they responded', 'how he responded', 'how she responded'],
+      },
+      {
+        text: "Do you feel the workplace would be supportive of a gradual return?",
+        signals: ['workplace', 'supportive', 'gradual return', 'going back', 'environment', 'warehouse'],
+      },
     ],
     employer: [
-      "How has the team responded to the worker's absence?",
-      "Is HR aware of the situation and the return-to-work obligations?",
-      "What is the earliest you could have modified duties available?",
-      "Are there any industrial relations concerns I should be aware of?",
+      {
+        text: "How has the team responded to the worker's absence?",
+        signals: ['team', 'colleagues', 'covering', 'shifts', 'absence', 'responded'],
+      },
+      {
+        text: "Is HR aware of the situation and the return-to-work obligations?",
+        signals: ['hr', 'human resources', 'obligations', 'aware', 'notified'],
+      },
+      {
+        text: "What is the earliest you could have modified duties available?",
+        signals: ['earliest', 'available', 'within a week', 'ready', 'when could'],
+      },
+      {
+        text: "Are there any industrial relations concerns I should be aware of?",
+        signals: ['industrial relations', 'union', 'dispute', 'grievance', 'ir concern'],
+      },
     ],
     medical: [
-      "From your perspective, is the employer likely to be supportive of a graded return?",
-      "Have you had any direct communication with the employer about suitable duties?",
+      {
+        text: "From your perspective, is the employer likely to be supportive of a graded return?",
+        signals: ['employer', 'supportive', 'workplace', 'graded return'],
+      },
+      {
+        text: "Have you had any direct communication with the employer about suitable duties?",
+        signals: ['communication with employer', 'spoken to employer', 'contacted employer', 'suitable duties'],
+      },
     ],
     legal: [
-      "Has the employer been formally notified of their suitable duties obligations?",
+      {
+        text: "Has the employer been formally notified of their suitable duties obligations?",
+        signals: ['formally notified', 'obligations', 'suitable duties', 'employer notified'],
+      },
     ],
   },
   R: {
     worker: [
-      "Is there anything outside the injury itself that has been making things harder?",
-      "How are you feeling about the idea of eventually returning to work?",
-      "Have there been any financial pressures as a result of the injury?",
-      "How are you finding the claims process so far?",
-      "Is there anything about the workplace environment that concerns you?",
+      {
+        text: "Is there anything outside the injury itself that has been making things harder?",
+        signals: ['outside the injury', 'making things harder', 'other than the injury', 'beyond the injury', 'financial', 'mortgage', 'stress'],
+      },
+      {
+        text: "How are you feeling about the idea of eventually returning to work?",
+        signals: ['feeling about', 'going back', 'returning to work', 'idea of returning', 'anxious', 'worried about'],
+      },
+      {
+        text: "Have there been any financial pressures as a result of the injury?",
+        signals: ['financial', 'money', 'mortgage', 'payments', 'income', 'bills', 'tight'],
+      },
+      {
+        text: "How are you finding the claims process so far?",
+        signals: ['claims process', 'paperwork', 'insurer', 'overwhelming', 'finding the process'],
+      },
+      {
+        text: "Is there anything about the workplace environment that concerns you?",
+        signals: ['workplace environment', 'environment', 'warehouse', 'same situation', 're-injur', 'concerns about'],
+      },
     ],
     employer: [
-      "Are you aware of any personal or financial stressors the worker may be dealing with?",
-      "Has there been any tension between the worker and colleagues or management?",
+      {
+        text: "Are you aware of any personal or financial stressors the worker may be dealing with?",
+        signals: ['personal', 'stressor', 'financial difficulty', 'aware of any'],
+      },
+      {
+        text: "Has there been any tension between the worker and colleagues or management?",
+        signals: ['tension', 'conflict', 'dispute', 'issue with', 'relationship with'],
+      },
     ],
     medical: [
-      "Are there any psychosocial factors that may be impacting recovery?",
-      "Has the worker expressed any concerns about returning to the workplace?",
+      {
+        text: "Are there any psychosocial factors that may be impacting recovery?",
+        signals: ['psychosocial', 'psychological', 'flat', 'mood', 'mental health', 'psych'],
+      },
+      {
+        text: "Has the worker expressed any concerns about returning to the workplace?",
+        signals: ['expressed concern', 'worried about returning', 'concerns about workplace', 'anxious about'],
+      },
     ],
     legal: [
-      "Are there any disputes that may be affecting the worker's engagement with treatment?",
+      {
+        text: "Are there any disputes that may be affecting the worker's engagement with treatment?",
+        signals: ['dispute', 'affecting engagement', 'treatment engagement', 'compliance'],
+      },
     ],
   },
   E: {
     worker: [
-      "Are you managing to attend all your appointments consistently?",
-      "Would you be open to discussing a gradual return once your doctor gives the go-ahead?",
-      "What would need to happen for you to feel ready to take the next step?",
+      {
+        text: "Are you managing to attend all your appointments consistently?",
+        signals: ['appointment', 'attending', 'missed', 'consistently', 'showing up', 'haven\'t missed'],
+      },
+      {
+        text: "Would you be open to discussing a gradual return once your doctor gives the go-ahead?",
+        signals: ['open to', 'gradual return', 'go-ahead', 'willing to', 'ready to return'],
+      },
+      {
+        text: "What would need to happen for you to feel ready to take the next step?",
+        signals: ['feel ready', 'next step', 'what would', 'clear plan', 'need to happen'],
+      },
     ],
     employer: [
-      "Are you committed to implementing a suitable duties plan once one is drafted?",
-      "Is there a contact person we should liaise with directly on the return-to-work plan?",
+      {
+        text: "Are you committed to implementing a suitable duties plan once one is drafted?",
+        signals: ['committed', 'implementing', 'suitable duties plan', 'once drafted'],
+      },
+      {
+        text: "Is there a contact person we should liaise with directly on the return-to-work plan?",
+        signals: ['contact person', 'liaise with', 'point of contact', 'who should we'],
+      },
     ],
     medical: [
-      "Is the worker engaging well with treatment and following your recommendations?",
-      "Are there any compliance concerns I should be aware of?",
+      {
+        text: "Is the worker engaging well with treatment and following your recommendations?",
+        signals: ['engaging well', 'following recommendations', 'compliance', 'engaging with treatment'],
+      },
+      {
+        text: "Are there any compliance concerns I should be aware of?",
+        signals: ['compliance', 'not following', 'non-compliance', 'concern about engagement'],
+      },
     ],
     legal: [
-      "Is your client willing to participate in the return-to-work process at this stage?",
+      {
+        text: "Is your client willing to participate in the return-to-work process at this stage?",
+        signals: ['willing to participate', 'participate in', 'rtw process', 'at this stage'],
+      },
     ],
   },
 }
 
 // ─── WORKER RESPONSE MAP (demo only) ─────────────────────────────────────────
-// Keys are substrings matched against the CM question (lowercase).
 
 export const WORKER_RESPONSES = {
   'treating doctor':            "Dr Patel has been pretty good. She said the physio is helping but I still have a lot of pain in the mornings.",
@@ -167,11 +292,6 @@ export const RED_FLAGS = [
 ]
 
 // ─── DEMO SCRIPT ──────────────────────────────────────────────────────────────
-// INITIAL_LINES: rendered immediately on call start. Greeting exchange only.
-// DEMO_PAIRS: dripped automatically during the call. Each pair is a CM question
-//             followed by the other party's response. They fire in order with
-//             a pause between the CM line and the response, so the conversation
-//             reads naturally rather than flooding all at once.
 
 export const INITIAL_LINES = {
   worker: [
