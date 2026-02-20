@@ -105,39 +105,37 @@ export function SetupScreen({ stakeholder, setStakeholder, onStart }) {
           )}
         </div>
 
-        {/* Stakeholder selector — only shown in demo mode */}
-        {callMode === 'demo' && (
-          <div style={{ marginBottom: 24, animation: 'fadeIn 0.2s ease' }}>
-            <div style={{ fontWeight: 700, fontSize: 12, color: '#374151', marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-              Who are you speaking with?
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-              {Object.entries(STAKEHOLDER_TYPES).map(([key, st]) => {
-                const Icon = ICONS[key]
-                const sel = stakeholder === key
-                return (
-                  <button
-                    key={key}
-                    onClick={() => setStakeholder(key)}
-                    style={{
-                      background: sel ? st.color : '#F9FAFB',
-                      border: `2px solid ${sel ? st.color : '#E5E7EB'}`,
-                      borderRadius: 12,
-                      padding: '12px 14px',
-                      cursor: 'pointer',
-                      textAlign: 'left',
-                      transition: 'all 0.2s ease',
-                    }}
-                  >
-                    <Icon size={16} color={sel ? '#fff' : st.color} style={{ marginBottom: 4 }} />
-                    <div style={{ fontWeight: 700, fontSize: 13, color: sel ? '#fff' : '#111827' }}>{st.label}</div>
-                    <div style={{ fontSize: 11, color: sel ? 'rgba(255,255,255,0.8)' : '#9CA3AF', marginTop: 2 }}>{st.description}</div>
-                  </button>
-                )
-              })}
-            </div>
+        {/* Stakeholder selector — shown in both modes */}
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ fontWeight: 700, fontSize: 12, color: '#374151', marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+            Who are you speaking with?
           </div>
-        )}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            {Object.entries(STAKEHOLDER_TYPES).map(([key, st]) => {
+              const Icon = ICONS[key]
+              const sel = stakeholder === key
+              return (
+                <button
+                  key={key}
+                  onClick={() => setStakeholder(key)}
+                  style={{
+                    background: sel ? st.color : '#F9FAFB',
+                    border: `2px solid ${sel ? st.color : '#E5E7EB'}`,
+                    borderRadius: 12,
+                    padding: '12px 14px',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  <Icon size={16} color={sel ? '#fff' : st.color} style={{ marginBottom: 4 }} />
+                  <div style={{ fontWeight: 700, fontSize: 13, color: sel ? '#fff' : '#111827' }}>{st.label}</div>
+                  <div style={{ fontSize: 11, color: sel ? 'rgba(255,255,255,0.8)' : '#9CA3AF', marginTop: 2 }}>{st.description}</div>
+                </button>
+              )
+            })}
+          </div>
+        </div>
 
         {/* Framework info */}
         <div style={{ background: '#F0F9FF', border: '1px solid #BAE6FD', borderRadius: 10, padding: '10px 14px', marginBottom: 24 }}>
